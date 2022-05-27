@@ -1,0 +1,17 @@
+#!/bin/sh
+set -e
+
+if [ ! -z "${MATOMO_TOKEN_FILE}" ]; then
+  MATOMO_TOKEN=`cat ${MATOMO_TOKEN_FILE}`
+fi
+
+echo "Importing logs from ${LOGFILE_NAME}..."
+
+MOVED_LOGFILE_NAME="${LOGFILE_NAME}.$(date +%Y%m%d-%H%M%S)"
+
+mv ${LOGFILE_NAME} ${MOVED_LOGFILE_NAME}
+docker kill --signal="USR1" ${DOCKER_CONTAINER}
+
+python3 /import_logs.py --token-auth=${MATOMO_TOKEN} --url=${MATOMO_URL} --enable-http-errors --enable-http-redirects --enable-static --enable-bots --log-format-name traefik_json --add-sites-new-hosts ${MOVED_LOGFILE_NAME}
+
+rm ${MOVED_LOGFILE_NAME}
