@@ -148,50 +148,61 @@ class BaseFormat:
 class JsonFormat(BaseFormat):
     def __init__(self, name):
         super(JsonFormat, self).__init__(name)
-        self.json = None
-        self.date_format = '%Y-%m-%dT%H:%M:%S'
+        self.matched = None
 
     def check_format_line(self, line):
-        try:
-            self.json = json.loads(line)
-            return True
-        except:
-            return False
+        return self.match(line)
 
     def match(self, line):
         try:
-            # nginx outputs malformed JSON w/ hex escapes when confronted w/ non-UTF input. we have to
-            # workaround this by converting hex escapes in strings to unicode escapes. the conversion is naive,
-            # so it does not take into account the string's actual encoding (which we don't have access to).
-            line = line.replace('\\x', '\\u00')
-
-            self.json = json.loads(line)
-            return self
+            line = self.prepare_line(line)
+            parsed = json.loads(line)
+            self.matched = self.match_parsed_json(parsed)
         except:
-            self.json = None
-            return None
+            self.matched = None
+
+        return self.matched
+
+    def prepare_line(self, line):
+        return line
+
+    def match_parsed_json(self, parsed):
+        return parsed
 
     def get(self, key):
-        # Some ugly patchs ...
-        if key == 'generation_time_milli':
-            self.json[key] =  int(float(self.json[key]) * 1000)
-        # Patch date format ISO 8601
-        elif key == 'date':
-            tz = self.json[key][19:]
-            self.json['timezone'] = tz.replace(':', '')
-            self.json[key] = self.json[key][:19]
-
         try:
-            return self.json[key]
+            return self.matched[key]
         except KeyError:
-            raise BaseFormatException()
+            raise BaseFormatException("Cannot find group '%s'." % key)
 
     def get_all(self,):
-        return self.json
+        return self.matched
 
     def remove_ignored_groups(self, groups):
         for group in groups:
-            del self.json[group]
+            del self.matched[group]
+
+class NginxJsonFormat(JsonFormat):
+    def __init__(self, name):
+        super(NginxJsonFormat, self).__init__(name)
+        self.date_format = '%Y-%m-%dT%H:%M:%S'
+
+    def prepare_line(self, line):
+        # nginx outputs malformed JSON w/ hex escapes when confronted w/ non-UTF input. we have to
+        # workaround this by converting hex escapes in strings to unicode escapes. the conversion is naive,
+        # so it does not take into account the string's actual encoding (which we don't have access to).
+        return line.replace('\\x', '\\u00')
+
+    def match_parsed_json(self, parsed):
+        # Some ugly patchs ...
+        parsed['generation_time_milli'] = int(float(parsed['generation_time_milli']) * 1000)
+
+        # Patch date format ISO 8601
+        tz = parsed['date'][19:]
+        parsed['timezone'] = tz.replace(':', '')
+        parsed['date'] = parsed['date'][:19]
+
+        return parsed
 
 class RegexFormat(BaseFormat):
 
@@ -503,7 +514,7 @@ FORMATS = {
     's3': RegexFormat('s3', _S3_LOG_FORMAT),
     'icecast2': RegexFormat('icecast2', _ICECAST2_LOG_FORMAT),
     'elb': RegexFormat('elb', _ELB_LOG_FORMAT, '%Y-%m-%dT%H:%M:%S'),
-    'nginx_json': JsonFormat('nginx_json'),
+    'nginx_json': NginxJsonFormat('nginx_json'),
     'ovh': RegexFormat('ovh', _OVH_FORMAT),
     'haproxy': RegexFormat('haproxy', _HAPROXY_FORMAT, '%d/%b/%Y:%H:%M:%S.%f'),
     'gandi': RegexFormat('gandi', _GANDI_SIMPLE_HOSTING_FORMAT, '%d/%b/%Y:%H:%M:%S')

@@ -401,7 +401,8 @@ def check_nginx_json_groups(groups):
     assert groups['ip'] == '1.2.3.4'
     assert groups['length'] == 192
     assert groups['user_agent'] == 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.17 (KHTML, like Gecko) Chrome/24.0.1312.57 Safari/537.17'
-    assert groups['date'] == '2013-10-10T16:52:00+02:00'
+    assert groups['date'] == '2013-10-10T16:52:00'
+    assert groups['timezone'] == '+0200'
 
 def check_icecast2_groups(groups):
     check_ncsa_extended_groups(groups)
@@ -1006,6 +1007,62 @@ def test_amazon_cloudfront_rtmp_parsing():
     assert hits[1]['query_string'] == 'key=value'
     assert hits[1]['is_robot'] == False
     assert hits[1]['full_path'] == '/shqshne4jdp4b6.cloudfront.net/cfx/st\u200b'
+
+    assert len(hits) == 2
+
+def test_nginx_json_parsing():
+    """test parsing of traefik json logs"""
+
+    file_ = 'logs/nginx_json.log'
+
+    Recorder.recorders = []
+    import_logs.parser = import_logs.Parser()
+    import_logs.config.options.log_hostname = None
+    import_logs.config.options.enable_http_redirects = True
+    import_logs.config.options.enable_http_errors = True
+    import_logs.config.options.replay_tracking = False
+    import_logs.parser.parse(file_)
+
+    hits = [hit.__dict__ for hit in Recorder.recorders]
+
+    assert hits[0]['is_download'] == False
+    assert hits[0]['ip'] == '1.2.3.4'
+    assert hits[0]['is_redirect'] == False
+    assert hits[0]['filename'] == 'logs/nginx_json.log'
+    assert hits[0]['lineno'] == 0
+    assert hits[0]['status'] == '200'
+    assert hits[0]['is_error'] == False
+    assert hits[0]['event_name'] == None
+    assert hits[0]['args'] == {}
+    assert hits[0]['host'] == 'www.piwik.org'
+    assert hits[0]['date'] == datetime.datetime(2013, 10, 10, 14, 52)
+    assert hits[0]['path'] == '/piwik.php'
+    assert hits[0]['extension'] == 'php'
+    assert hits[0]['referrer'] == 'http://clearcode.cc/'
+    assert hits[0]['userid'] == None
+    assert hits[0]['length'] == 192
+    assert hits[0]['user_agent'] == 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.17 (KHTML, like Gecko) Chrome/24.0.1312.57 Safari/537.17'
+    assert hits[0]['generation_time_milli'] == 8
+    assert hits[0]['is_robot'] == False
+
+    assert hits[1]['is_download'] == False
+    assert hits[1]['ip'] == '1.2.3.4'
+    assert hits[1]['is_redirect'] == False
+    assert hits[1]['filename'] == 'logs/nginx_json.log'
+    assert hits[1]['lineno'] == 1
+    assert hits[1]['status'] == '200'
+    assert hits[1]['is_error'] == False
+    assert hits[1]['args'] == {}
+    assert hits[1]['host'] == 'www.piwik.org'
+    assert hits[1]['date'] == datetime.datetime(2013, 10, 10, 14, 52)
+    assert hits[1]['path'] == '/piwik.php'
+    assert hits[1]['extension'] == 'php'
+    assert hits[1]['referrer'] == 'http://clearcode.cc/'
+    assert hits[1]['userid'] == None
+    assert hits[1]['length'] == 192
+    assert hits[1]['user_agent'] == 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.17 (KHTML, like Gecko) Chrome/24.0.1312.57 Safari/537.17'
+    assert hits[1]['generation_time_milli'] == 8
+    assert hits[1]['is_robot'] == False
 
     assert len(hits) == 2
 
