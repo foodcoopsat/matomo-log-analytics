@@ -404,6 +404,14 @@ def check_nginx_json_groups(groups):
     assert groups['date'] == '2013-10-10T16:52:00'
     assert groups['timezone'] == '+0200'
 
+def check_traefik_json_groups(groups):
+    assert groups['host'] == 'www.example.com'
+    assert groups['date'] == '2022-05-28T01:10:07Z'
+    assert groups['timezone'] == '+0000'
+    assert groups['ip'] == '1.2.3.4'
+    assert groups['length'] == 13191
+    assert groups['user_agent'] == 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:90.0) Gecko/20100101 Firefox/90.0'
+
 def check_icecast2_groups(groups):
     check_ncsa_extended_groups(groups)
 
@@ -1063,6 +1071,66 @@ def test_nginx_json_parsing():
     assert hits[1]['user_agent'] == 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.17 (KHTML, like Gecko) Chrome/24.0.1312.57 Safari/537.17'
     assert hits[1]['generation_time_milli'] == 8
     assert hits[1]['is_robot'] == False
+
+    assert len(hits) == 2
+
+def test_traefik_json_parsing():
+    """test parsing of traefik json logs"""
+
+    file_ = 'logs/traefik_json.log'
+
+    Recorder.recorders = []
+    import_logs.parser = import_logs.Parser()
+    import_logs.config.options.log_hostname = None
+    import_logs.config.options.enable_http_redirects = True
+    import_logs.config.options.enable_http_errors = True
+    import_logs.config.options.replay_tracking = False
+    import_logs.parser.parse(file_)
+
+    hits = [hit.__dict__ for hit in Recorder.recorders]
+
+    assert hits[0]['is_download'] == False
+    assert hits[0]['ip'] == '1.2.3.4'
+    assert hits[0]['is_redirect'] == False
+    assert hits[0]['filename'] == 'logs/traefik_json.log'
+    assert hits[0]['lineno'] == 0
+    assert hits[0]['status'] == '200'
+    assert hits[0]['is_error'] == False
+    assert hits[0]['event_name'] == None
+    assert hits[0]['args'] == {'cvar': {1: ['HTTP-method', 'GET']}}
+    assert hits[0]['host'] == 'www.example.com'
+    assert hits[0]['date'] == datetime.datetime(2022, 5, 28, 1, 10, 7)
+    assert hits[0]['path'] == '/Products/theProduct'
+    assert hits[0]['extension'] == '/products/theproduct'
+    assert hits[0]['referrer'] == ''
+    assert hits[0]['userid'] == None
+    assert hits[0]['length'] == 13191
+    assert hits[0]['user_agent'] == 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:90.0) Gecko/20100101 Firefox/90.0'
+    assert hits[0]['generation_time_milli'] == 276.798809
+    assert hits[0]['query_string'] == ''
+    assert hits[0]['is_robot'] == False
+    assert hits[0]['full_path'] == '/Products/theProduct'
+
+    assert hits[1]['is_download'] == False
+    assert hits[1]['ip'] == '192.0.2.222'
+    assert hits[1]['is_redirect'] == False
+    assert hits[1]['filename'] == 'logs/traefik_json.log'
+    assert hits[1]['lineno'] == 1
+    assert hits[1]['status'] == '404'
+    assert hits[1]['is_error'] == True
+    assert hits[1]['args'] == {'cvar': {1: ['HTTP-method', 'GET']}, 'uid': 'theuser'}
+    assert hits[1]['host'] == 'www.piwik.org'
+    assert hits[1]['date'] == datetime.datetime(2022, 5, 28, 1, 10, 10)
+    assert hits[1]['path'] == '/path/index.html'
+    assert hits[1]['extension'] == 'html'
+    assert hits[1]['referrer'] == 'https://example.com/'
+    assert hits[1]['userid'] == 'theuser'
+    assert hits[1]['length'] == 19
+    assert hits[1]['user_agent'] == 'LNX 10,0,32,18'
+    assert hits[1]['generation_time_milli'] == 0.170959
+    assert hits[1]['query_string'] == ''
+    assert hits[1]['is_robot'] == False
+    assert hits[1]['full_path'] == '/path/index.html'
 
     assert len(hits) == 2
 

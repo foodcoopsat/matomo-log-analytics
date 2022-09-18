@@ -204,6 +204,44 @@ class NginxJsonFormat(JsonFormat):
 
         return parsed
 
+class TraefikJsonFormat(JsonFormat):
+    def __init__(self, name):
+        super(TraefikJsonFormat, self).__init__(name)
+        self.date_format = '%Y-%m-%dT%H:%M:%SZ'
+
+    def match_parsed_json(self, parsed):
+        MANDATORY_MAPPING = {
+            'date': 'time',
+            'host': 'RequestHost',
+            'ip': 'ClientHost',
+            'length': 'DownstreamContentSize',
+            'method': 'RequestMethod',
+            'path': 'RequestPath',
+        }
+
+        OPTIONAL_MAPPING = {
+            'referrer': 'request_Referer',
+            'user_agent': 'request_User-Agent',
+        }
+
+        ret = {
+            'generation_time_milli': parsed['Duration'] / 1000000,
+            'status': str(parsed['DownstreamStatus']),
+            'timezone': '+0000',
+        }
+
+        userid = parsed.get('ClientUsername', '-')
+        if userid != '-':
+            ret['userid'] = userid
+
+        for target, source in MANDATORY_MAPPING.items():
+            ret[target] = parsed[source]
+
+        for target, source in OPTIONAL_MAPPING.items():
+            ret[target] = parsed.get(source, '')
+
+        return ret
+
 class RegexFormat(BaseFormat):
 
     def __init__(self, name, regex, date_format=None):
@@ -515,6 +553,7 @@ FORMATS = {
     'icecast2': RegexFormat('icecast2', _ICECAST2_LOG_FORMAT),
     'elb': RegexFormat('elb', _ELB_LOG_FORMAT, '%Y-%m-%dT%H:%M:%S'),
     'nginx_json': NginxJsonFormat('nginx_json'),
+    'traefik_json': TraefikJsonFormat('traefik_json'),
     'ovh': RegexFormat('ovh', _OVH_FORMAT),
     'haproxy': RegexFormat('haproxy', _HAPROXY_FORMAT, '%d/%b/%Y:%H:%M:%S.%f'),
     'gandi': RegexFormat('gandi', _GANDI_SIMPLE_HOSTING_FORMAT, '%d/%b/%Y:%H:%M:%S')
