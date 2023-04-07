@@ -1,4 +1,4 @@
-FROM python:3.10-alpine
+FROM python:3.11.3-alpine
 
 RUN apk add --no-cache docker-cli
 
